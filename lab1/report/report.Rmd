@@ -1,0 +1,91 @@
+---
+title: "Advanced Machine Learning"
+subtitle: "Lab 1"
+author: "Rasmus Holm"
+date: "`r Sys.Date()`"
+fontsize: 10pt
+geometry: margin=1in
+output:
+    pdf_document:
+        toc: false
+        number_sections: false
+        fig_caption: yes
+        keep_tex: no
+        includes:
+            in_header: styles.sty
+---
+
+```{r global-options, echo = FALSE, eval=TRUE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(fig.pos='H', fig.align='center')
+```
+
+```{r, echo=FALSE}
+library(bnlearn)
+library(gRain)
+
+## install.packages("bnlearn")
+## source("https://bioconductor.org/biocLite.R")
+## biocLite("RBGL")
+## install.packages("gRain")
+```
+
+# Assignment 1
+
+```{r}
+true_net <- empty.graph(names(learning.test))
+modelstring(true_net) = "[A][C][F][B|A][D|A:C][E|B:F]"
+```
+
+```{r}
+sapply(1:10, function(i) {
+    set.seed(i)
+    g1 <- hc(alarm, score="bde", iss=1, restart=10)
+
+    set.seed(10 * i)
+    g2 <- hc(alarm, score="bde", iss=1, restart=10)
+
+    all.equal(cpdag(g1), cpdag(g2)) == TRUE
+        ## all.equal(vstructs(g1, arcs=TRUE), vstructs(g2, arcs=TRUE)) == TRUE &&
+        ## all.equal(vstructs(g1), vstructs(g2)) == TRUE
+})
+```
+
+# Assignment 2
+
+```{r}
+data <- asia
+
+g1 <- hc(data, score="bde", iss=1, restart=10)
+g10 <- hc(data, score="bde", iss=10, restart=10)
+g100 <- hc(data, score="bde", iss=100, restart=10)
+g1000 <- hc(data, score="bde", iss=1000, restart=10)
+
+score(g1, data, score="bde")
+score(g10, data, score="bde")
+score(g100, data, score="bde")
+score(g1000, data, score="bde")
+```
+
+```{r, echo=FALSE}
+## oldpar <- par(mfrow=c(2, 2))
+plot(g1, main="iss=1")
+plot(g10, main="iss=10")
+plot(g100, main="iss=100")
+plot(g1000, main="iss=1000")
+## par(oldpar)
+```
+
+In the BDe metric we assume that the prior distribution of nodes being connected is a Dirichlet. The imaginary sample size determine the parameters and the greater the number, the stronger we assume the prior and the data have less influence on the model we choose. That is to say that if the imaginary sample size is low the data determine the model which will most likely be more sparse, i.e. less arcs/edges, than having a stronger prior (uniform). Given that there are 8 nodes in the graph we would expect the average branching factor to be around $7 / 2 = 3.5$ and we get $3$ with a imaginary sample size of 1000 which is close and Bayesian networks also have certain constraints that prevent edges from being added arbitrarly.
+
+# Assignment 3
+
+```{r}
+
+```
+
+# Assignment 4a
+
+```{r}
+
+```
