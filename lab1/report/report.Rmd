@@ -84,7 +84,7 @@ In the BDe metric we assume that the prior distribution of nodes being connected
 
 ```
 
-# Assignment 4a
+# Assignment 4
 
 ```{r}
 
