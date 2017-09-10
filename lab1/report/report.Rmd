@@ -23,11 +23,14 @@ knitr::opts_chunk$set(fig.pos='H', fig.align='center')
 ```{r, echo=FALSE}
 library(bnlearn)
 library(gRain)
+library(Rgraphviz)
 
 ## install.packages("bnlearn")
 ## source("https://bioconductor.org/biocLite.R")
 ## biocLite("RBGL")
 ## install.packages("gRain")
+## source("https://bioconductor.org/biocLite.R")
+## biocLite("Rgraphviz")
 ```
 
 # Assignment 1
@@ -38,18 +41,37 @@ modelstring(true_net) = "[A][C][F][B|A][D|A:C][E|B:F]"
 ```
 
 ```{r}
+graph_equality <- function(g1, g2) {
+    all.equal(cpdag(g1), cpdag(g2)) == TRUE
+}
+
+print("No restarts")
+sapply(1:10, function(i) {
+    g1 <- hc(alarm, score="bde", iss=1, restart=0)
+    g2 <- hc(alarm, score="bde", iss=1, restart=0)
+    graph_equality(g1, g2)
+})
+
+print("Restarts with equivalent seed")
 sapply(1:10, function(i) {
     set.seed(i)
     g1 <- hc(alarm, score="bde", iss=1, restart=10)
-
-    set.seed(10 * i)
+    set.seed(i)
     g2 <- hc(alarm, score="bde", iss=1, restart=10)
+    graph_equality(g1, g2)
+})
 
-    all.equal(cpdag(g1), cpdag(g2)) == TRUE
-        ## all.equal(vstructs(g1, arcs=TRUE), vstructs(g2, arcs=TRUE)) == TRUE &&
-        ## all.equal(vstructs(g1), vstructs(g2)) == TRUE
+print("Restarts with distinct seed")
+sapply(1:10, function(i) {
+    set.seed(i)
+    g1 <- hc(alarm, score="bde", iss=1, restart=10)
+    set.seed(2 * i)
+    g2 <- hc(alarm, score="bde", iss=1, restart=10)
+    graph_equality(g1, g2)
 })
 ```
+
+The hill climbing algorithm is completely deterministic so unless we do random restarts the result is the same. The random restarts means that we begin the algorithm with different initial graph structures which may possibly end up in different local optimums.
 
 # Assignment 2
 
@@ -61,31 +83,79 @@ g10 <- hc(data, score="bde", iss=10, restart=10)
 g100 <- hc(data, score="bde", iss=100, restart=10)
 g1000 <- hc(data, score="bde", iss=1000, restart=10)
 
-score(g1, data, score="bde")
-score(g10, data, score="bde")
-score(g100, data, score="bde")
-score(g1000, data, score="bde")
+bnlearn::score(g1, data, type="bde")
+bnlearn::score(g10, data, type="bde")
+bnlearn::score(g100, data, type="bde")
+bnlearn::score(g1000, data, type="bde")
 ```
+
+In the BDe (\textit{Bayesian Dirichlet equivalent uniform}) score we assume a-priori that the probabilities follow a Dirichlet($\alpha$) where $\alpha$ is the \textit{imaginary sample size} (iss) and the posterior
+
+\begin{equation*}
+P(A | Data) = \frac{iss}{n + iss} P_{\text{prior}}(A) + \frac{n}{n + iss} P_{\text{empirical}}(A),
+\end{equation*}
+
+where $n$ is the number of observations in the data. This means that the iss controls how certain we are a-priori of the probabilities indicating that having a high iss means the data have less influence on the posterior distribution. Since the Dirichlet is chosen such that it is uniform a higher iss result in more edges in the graph, therefore iss can be seen as a regularization term. A low value entails a sparse graph, i.e. less arcs/dependencies, inferred from data.
+
+This can clearly be shown by the plot below. Given that there are 8 nodes in the graph we would expect the average branching factor to be around $7 / 2 = 3.5$ and we get $3$ with a imaginary sample size of 1000 which is close and Bayesian networks also have certain constraints that prevent edges from being added arbitrarly.
 
 ```{r, echo=FALSE}
-## oldpar <- par(mfrow=c(2, 2))
-plot(g1, main="iss=1")
-plot(g10, main="iss=10")
-plot(g100, main="iss=100")
-plot(g1000, main="iss=1000")
-## par(oldpar)
+oldpar <- par(mfrow=c(2, 1))
+graphviz.plot(g1, main="iss=1")
+graphviz.plot(g1000, main="iss=1000")
+par(oldpar)
 ```
-
-In the BDe metric we assume that the prior distribution of nodes being connected is a Dirichlet. The imaginary sample size determine the parameters and the greater the number, the stronger we assume the prior and the data have less influence on the model we choose. That is to say that if the imaginary sample size is low the data determine the model which will most likely be more sparse, i.e. less arcs/edges, than having a stronger prior (uniform). Given that there are 8 nodes in the graph we would expect the average branching factor to be around $7 / 2 = 3.5$ and we get $3$ with a imaginary sample size of 1000 which is close and Bayesian networks also have certain constraints that prevent edges from being added arbitrarly.
 
 # Assignment 3
 
 ```{r}
-
+data <- asia
+graph <- hc(data, score="bde", iss=1, restart=10)
+bayes_net <- bn.fit(graph, data, method="bayes", iss=1)
+junction_tree <- compile(as.grain(bayes_net))
 ```
+
+```{r, echo=FALSE}
+plot(junction_tree)
+```
+
+```{r}
+## Exact inference
+querygrain(junction_tree, nodes=c("B"), type="marginal")
+
+## Approximate inference
+dist <- cpdist(fitted=bayes_net, nodes=c("B"), evidence=TRUE)
+prop.table(table(dist))
+
+dist <- cpdist(fitted=bayes_net, nodes=c("B"), evidence=TRUE, method="lw")
+prop.table(table(dist))
+
+## Exact inference
+querygrain(junction_tree, nodes=c("L", "T"), type="joint")
+
+## Approximate inference
+dist <- cpdist(fitted=bayes_net, nodes=c("L", "T"), evidence=TRUE)
+prop.table(table(dist))
+
+dist <- cpdist(fitted=bayes_net, nodes=c("L", "T"), evidence=TRUE, method="lw")
+prop.table(table(dist))
+
+## Exact Inference
+querygrain(setEvidence(junction_tree, nodes="E", states="yes"),
+           nodes=c("L", "T"), type="joint")
+
+## Approximate inference
+dist <- cpdist(fitted=bayes_net, nodes=c("L", "T"), evidence=(E == "yes"))
+prop.table(table(dist))
+```
+
+In the approximate inference methods we use simulated data to infer the queries and the samples are random so the inference will also be random.
 
 # Assignment 4
 
 ```{r}
-
+n <- 1000
+rgraphs <- random.graph(nodes=c("1", "2", "3", "4", "5"), num=n,
+                        method="ic-dag", burn.in=500, every=50)
+length(unique(lapply(rgraphs, cpdag))) / n
 ```
