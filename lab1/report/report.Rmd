@@ -35,7 +35,7 @@ library(Rgraphviz)
 
 # Assignment 1
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, cache=TRUE}
 true_net <- empty.graph(names(learning.test))
 modelstring(true_net) = "[A][C][F][B|A][D|A:C][E|B:F]"
 ```
@@ -71,13 +71,13 @@ sapply(1:5, function(i) {
 })
 ```
 
-The hill climbing algorithm is completely deterministic so unless we do random restarts the result is the same. The random restarts means that we begin the algorithm with different initial graph structures which may possibly end up in different local optimums.
+The hill climbing algorithm is completely deterministic so unless we do random restarts the result is the same. The random restarts means that we begin the algorithm with different initial graph structures which may possibly end up in different local optima.
 
 \newpage
 
 # Assignment 2
 
-```{r}
+```{r, cache=TRUE}
 data <- asia
 
 g1 <- hc(data, score="bde", iss=1, restart=10)
@@ -97,7 +97,7 @@ In the BDe (\textit{Bayesian Dirichlet equivalent uniform}) score we assume a pr
 P(A | Data) = \frac{iss}{n + iss} P_{\text{prior}}(A) + \frac{n}{n + iss} P_{\text{empirical}}(A),
 \end{equation*}
 
-where $n$ is the number of observations in the data. This means that the iss controls how certain we are a priori of the probabilities indicating that having a high iss means the data have less influence on the posterior distribution. Since the Dirichlet is chosen such that it is uniform a higher iss result in more edges in the graph, therefore iss can be seen as a regularization term. A low value entails a sparse graph, i.e. less arcs/dependencies, inferred from data assuming the true distribution is a sparse graph.
+where $n$ is the number of observations in the data. This means that the iss controls how certain we are a priori of the probabilities indicating that having a high iss means the data have less influence on the posterior distribution. Since the Dirichlet is chosen such that it is uniform a higher iss result in more edges in the graph, therefore iss can be seen as a regularization term. A low value entails a sparse graph, i.e. less arcs/dependencies, inferred from data assuming the true distribution is represented by a sparse graph.
 
 This can clearly be shown by the plot below. Given that there are 8 nodes in the graph we would expect the average branching factor to be around $7 / 2 = 3.5$  with a uniform prior and we get $3$ with a imaginary sample size of 1000 which is close. Bayesian networks have certain constraints that prevent edges from being added arbitrarly.
 
@@ -169,7 +169,7 @@ dist <- cpdist(bayes_net, nodes="D", evidence=(B=="no") & (E=="no"))
 prop.table(table(dist))
 ```
 
-In the approximate inference methods we use simulated data to infer the queries and the samples are random so the inference will also be random. When the query includes observed nodes it seems that the approximate inference algorithm require more samples to be reasonably accurate than for samples without any observed nodes. This is probabily due to the sampling process is sampling from the full joint distribution rather than the conditional distribution. This means that not all samples fullfil the conditional so the actual sample size is far less than specified. This is evident from the following example
+In the approximate inference methods we use simulated data to infer the queries and the samples are random so the inference will also be random. When the query includes observed nodes it seems that the approximate inference algorithm require more samples to be reasonably accurate than for queries without any observed nodes. This is probabily due to the sampling process is sampling from the full joint distribution rather than the conditional distribution. This means that not all samples fullfil the conditional so the actual sample size is far less than specified. This is evident from the following code block.
 
 ```{r}
 ## No observed nodes
@@ -191,11 +191,11 @@ sprintf("Number of samples to generate: %i, Number of samples returned: %i",
 
 # Assignment 4
 
-```{r}
-n <- 1000
-rgraphs <- random.graph(nodes=c("1", "2", "3", "4", "5"), num=n,
-                        method="ic-dag", burn.in=500, every=50)
-length(unique(lapply(rgraphs, cpdag))) / n
+```{r, cache=TRUE}
+n <- 10000
+rgraphs <- unique(random.graph(nodes=c("1", "2", "3", "4", "5"), num=n,
+                               method="ic-dag", burn.in=500, every=10))
+length(unique(lapply(rgraphs, cpdag))) / length(rgraphs)
 ```
 
-From the evidence we would reduce the search space by approximate 10-15\% which is a lot relative to how many DAGs there are as the number of nodes increases. However, it is more difficult I imagine to work with the essential graphs due to containing both directed and undirected arcs. Depending on the increased complexity of the algorithm to work in the essential graph space it could potentially be appropriate to do structure learning in that space.
+From the evidence we would reduce the search space by approximately 45\% which is a lot relative to how many DAGs there are as the number of nodes increases. However, I imagine it is more difficult to work with the essential graphs due to containing both directed and undirected arcs. Depending on the increased complexity of the algorithm working in the essential graph space could potentially be appropriate for structure learning.
