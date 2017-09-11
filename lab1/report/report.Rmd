@@ -35,7 +35,7 @@ library(Rgraphviz)
 
 # Assignment 1
 
-```{r}
+```{r, echo=FALSE}
 true_net <- empty.graph(names(learning.test))
 modelstring(true_net) = "[A][C][F][B|A][D|A:C][E|B:F]"
 ```
@@ -46,14 +46,14 @@ graph_equality <- function(g1, g2) {
 }
 
 print("No restarts")
-sapply(1:10, function(i) {
+sapply(1:5, function(i) {
     g1 <- hc(alarm, score="bde", iss=1, restart=0)
     g2 <- hc(alarm, score="bde", iss=1, restart=0)
     graph_equality(g1, g2)
 })
 
 print("Restarts with equivalent seed")
-sapply(1:10, function(i) {
+sapply(1:5, function(i) {
     set.seed(i)
     g1 <- hc(alarm, score="bde", iss=1, restart=10)
     set.seed(i)
@@ -62,7 +62,7 @@ sapply(1:10, function(i) {
 })
 
 print("Restarts with distinct seed")
-sapply(1:10, function(i) {
+sapply(1:5, function(i) {
     set.seed(i)
     g1 <- hc(alarm, score="bde", iss=1, restart=10)
     set.seed(2 * i)
@@ -72,6 +72,8 @@ sapply(1:10, function(i) {
 ```
 
 The hill climbing algorithm is completely deterministic so unless we do random restarts the result is the same. The random restarts means that we begin the algorithm with different initial graph structures which may possibly end up in different local optimums.
+
+\newpage
 
 # Assignment 2
 
@@ -89,15 +91,15 @@ bnlearn::score(g100, data, type="bde")
 bnlearn::score(g1000, data, type="bde")
 ```
 
-In the BDe (\textit{Bayesian Dirichlet equivalent uniform}) score we assume a-priori that the probabilities follow a Dirichlet($\alpha$) where $\alpha$ is the \textit{imaginary sample size} (iss) and the posterior
+In the BDe (\textit{Bayesian Dirichlet equivalent uniform}) score we assume a priori that the probabilities follow a Dirichlet($\alpha$) where $\alpha$ is the \textit{imaginary sample size} (iss) and the posterior
 
 \begin{equation*}
 P(A | Data) = \frac{iss}{n + iss} P_{\text{prior}}(A) + \frac{n}{n + iss} P_{\text{empirical}}(A),
 \end{equation*}
 
-where $n$ is the number of observations in the data. This means that the iss controls how certain we are a-priori of the probabilities indicating that having a high iss means the data have less influence on the posterior distribution. Since the Dirichlet is chosen such that it is uniform a higher iss result in more edges in the graph, therefore iss can be seen as a regularization term. A low value entails a sparse graph, i.e. less arcs/dependencies, inferred from data.
+where $n$ is the number of observations in the data. This means that the iss controls how certain we are a priori of the probabilities indicating that having a high iss means the data have less influence on the posterior distribution. Since the Dirichlet is chosen such that it is uniform a higher iss result in more edges in the graph, therefore iss can be seen as a regularization term. A low value entails a sparse graph, i.e. less arcs/dependencies, inferred from data assuming the true distribution is a sparse graph.
 
-This can clearly be shown by the plot below. Given that there are 8 nodes in the graph we would expect the average branching factor to be around $7 / 2 = 3.5$ and we get $3$ with a imaginary sample size of 1000 which is close and Bayesian networks also have certain constraints that prevent edges from being added arbitrarly.
+This can clearly be shown by the plot below. Given that there are 8 nodes in the graph we would expect the average branching factor to be around $7 / 2 = 3.5$  with a uniform prior and we get $3$ with a imaginary sample size of 1000 which is close. Bayesian networks have certain constraints that prevent edges from being added arbitrarly.
 
 ```{r, echo=FALSE}
 oldpar <- par(mfrow=c(2, 1))
@@ -105,6 +107,8 @@ graphviz.plot(g1, main="iss=1")
 graphviz.plot(g1000, main="iss=1000")
 par(oldpar)
 ```
+
+\newpage
 
 # Assignment 3
 
@@ -147,9 +151,43 @@ querygrain(setEvidence(junction_tree, nodes="E", states="yes"),
 ## Approximate inference
 dist <- cpdist(fitted=bayes_net, nodes=c("L", "T"), evidence=(E == "yes"))
 prop.table(table(dist))
+
+## Exact Inference
+querygrain(junction_tree, nodes=c("D", "B", "E"), type="conditional")
+
+## Approximate inference
+dist <- cpdist(bayes_net, nodes="D", evidence=(B=="yes") & (E=="yes"), n=10^6)
+prop.table(table(dist))
+
+dist <- cpdist(bayes_net, nodes="D", evidence=(B=="yes") & (E=="no"))
+prop.table(table(dist))
+
+dist <- cpdist(bayes_net, nodes="D", evidence=(B=="no") & (E=="yes"), n=10^6)
+prop.table(table(dist))
+
+dist <- cpdist(bayes_net, nodes="D", evidence=(B=="no") & (E=="no"))
+prop.table(table(dist))
 ```
 
-In the approximate inference methods we use simulated data to infer the queries and the samples are random so the inference will also be random.
+In the approximate inference methods we use simulated data to infer the queries and the samples are random so the inference will also be random. When the query includes observed nodes it seems that the approximate inference algorithm require more samples to be reasonably accurate than for samples without any observed nodes. This is probabily due to the sampling process is sampling from the full joint distribution rather than the conditional distribution. This means that not all samples fullfil the conditional so the actual sample size is far less than specified. This is evident from the following example
+
+```{r}
+## No observed nodes
+number_of_samples <- 10^6
+dist <- cpdist(bayes_net, nodes="D", evidence=TRUE, n=number_of_samples)
+number_of_actual_samples <- nrow(dist)
+sprintf("Number of samples to generate: %i, Number of samples returned: %i",
+        number_of_samples, number_of_actual_samples)
+
+## Two observed nodes
+number_of_samples <- 10^6
+dist <- cpdist(bayes_net, nodes="D", evidence=(B=="no") & (E=="yes"), n=number_of_samples)
+number_of_actual_samples <- nrow(dist)
+sprintf("Number of samples to generate: %i, Number of samples returned: %i",
+        number_of_samples, number_of_actual_samples)
+```
+
+\newpage
 
 # Assignment 4
 
@@ -159,3 +197,5 @@ rgraphs <- random.graph(nodes=c("1", "2", "3", "4", "5"), num=n,
                         method="ic-dag", burn.in=500, every=50)
 length(unique(lapply(rgraphs, cpdag))) / n
 ```
+
+From the evidence we would reduce the search space by approximate 10-15\% which is a lot relative to how many DAGs there are as the number of nodes increases. However, it is more difficult I imagine to work with the essential graphs due to containing both directed and undirected arcs. Depending on the increased complexity of the algorithm to work in the essential graph space it could potentially be appropriate to do structure learning in that space.
