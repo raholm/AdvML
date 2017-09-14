@@ -1,0 +1,121 @@
+---
+title: "Advanced Machine Learning"
+subtitle: "Lab 2"
+author: "Rasmus Holm"
+date: "`r Sys.Date()`"
+fontsize: 10pt
+geometry: margin=1in
+output:
+    pdf_document:
+        toc: false
+        number_sections: false
+        fig_caption: yes
+        keep_tex: no
+---
+
+```{r global-options, echo = FALSE, eval=TRUE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(fig.pos='H', fig.align='center')
+```
+
+# 1)
+
+```{r, echo=TRUE}
+library(HMM)
+
+## Hidden variables (true positions)
+states <- as.character(1:10)
+
+transition_probs <- matrix(c(0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0.5, 0.5, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0.5, 0.5, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0.5, 0.5, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0.5, 0.5, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.5,
+                             0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0.5),
+                           byrow=TRUE, nrow=length(states), ncol=length(states))
+
+## Emission variables (observed positions)
+symbols <- as.character(1:10)
+
+emission_probs <- matrix(c(0.2, 0.2, 0.2, 0, 0, 0, 0, 0, 0.2, 0.2,
+                           0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0, 0.2,
+                           0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0,
+                           0, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0,
+                           0, 0, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0,
+                           0, 0, 0, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0,
+                           0, 0, 0, 0, 0.2, 0.2, 0.2, 0.2, 0.2, 0,
+                           0, 0, 0, 0, 0, 0.2, 0.2, 0.2, 0.2, 0.2,
+                           0.2, 0, 0, 0, 0, 0, 0.2, 0.2, 0.2, 0.2,
+                           0.2, 0.2, 0, 0, 0, 0, 0, 0.2, 0.2, 0.2),
+                         byrow=TRUE, nrow=length(states), ncol=length(states))
+
+start_probs <- rep(1, length(states)) / length(states)
+
+robot_hmm <- initHMM(states, symbols,
+                     startProbs=start_probs,
+                     transProbs=transition_probs,
+                     emissionProbs=transition_probs)
+```
+
+# 2)
+
+```{r, echo=TRUE}
+set.seed(12345)
+samples_hmm <- simHMM(robot_hmm, 100)
+```
+
+# 3)
+
+```{r, echo=TRUE}
+compute_filtered_probs <- function(hmm, observations) {
+    alphas <- forward(robot_hmm, sample_obs)
+    betas <- backward(robot_hmm, sample_obs)
+
+}
+
+compute_smoothed_probs <- function(hmm, observations) {
+    alphas <- forward(robot_hmm, sample_obs)
+    betas <- backward(robot_hmm, sample_obs)
+
+}
+
+?forward
+?backward
+
+sample_states <- samples_hmm$states
+sample_obs <- samples_hmm$observation
+
+
+posterior(robot_hmm, sample_obs)
+?posterior
+
+most_probable_path <- viterbi(robot_hmm, sample_obs)
+```
+
+# 4)
+
+```{r, echo=TRUE}
+
+```
+
+# 5)
+
+```{r, echo=TRUE}
+
+```
+
+# 6)
+
+```{r, echo=TRUE}
+
+```
+
+# 7)
+
+```{r, echo=TRUE}
+
+```
