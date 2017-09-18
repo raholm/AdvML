@@ -72,39 +72,90 @@ samples_hmm <- simHMM(robot_hmm, 100)
 
 ```{r, echo=TRUE}
 compute_filtered_probs <- function(hmm, observations) {
-    alphas <- forward(robot_hmm, sample_obs)
-    betas <- backward(robot_hmm, sample_obs)
+    probs_unormalized <- forward(hmm, observations)
+    probs <- apply(filtered_probs_unormalized, 2, function(x) {
+        prop.table(exp(x))
+    })
+    probs
+}
 
+get_most_probable_states_by_filtered <- function(hmm, observations, states) {
+    probs <- compute_filtered_probs(hmm, observations)
+    most_probable_states <- as.character(apply(probs, 2, function(x) {
+        states[which.max(x)]
+    }))
+    most_probable_states
 }
 
 compute_smoothed_probs <- function(hmm, observations) {
-    alphas <- forward(robot_hmm, sample_obs)
-    betas <- backward(robot_hmm, sample_obs)
-
+    probs <- posterior(hmm, observations)
+    probs
 }
 
-?forward
-?backward
+get_most_probable_states_by_smoothed <- function(hmm, observations, states) {
+    probs <- compute_smoothed_probs(hmm, observations)
+    most_probable_states <- as.character(apply(probs, 2, function(x) {
+        states[which.max(x)]
+    }))
+    most_probable_states
+}
+
+get_most_probable_path_by_viterbi <- function(hmm, observations) {
+    most_probable_path <- viterbi(hmm, observations)
+    most_probable_path
+}
+
+get_accuracy_filtered <- function(hmm, samples, states) {
+    predicted_states <- get_most_probable_states_by_filtered(hmm, samples$observation, states)
+    sum(predicted_states == samples$states) / length(predicted_states)
+}
+
+get_accuracy_smoothed <- function(hmm, samples, states) {
+    predicted_states <- get_most_probable_states_by_smoothed(hmm, samples$observation, states)
+    sum(predicted_states == samples$states) / length(predicted_states)
+}
+
+get_accuracy_viterbi <- function(hmm, samples, states) {
+    predicted_states <- get_most_probable_path_by_viterbi(hmm, samples$observation)
+    sum(predicted_states == samples$states) / length(predicted_states)
+}
 
 sample_states <- samples_hmm$states
 sample_obs <- samples_hmm$observation
 
-
-posterior(robot_hmm, sample_obs)
-?posterior
-
-most_probable_path <- viterbi(robot_hmm, sample_obs)
+most_probable_states_filtered <- get_most_probable_states_by_filtered(robot_hmm, sample_obs, states)
+most_probable_states_smoothed <- get_most_probable_states_by_smoothed(robot_hmm, sample_obs, states)
+most_probable_path <- get_most_probable_path_by_viterbi(robot_hmm, sample_obs)
 ```
 
 # 4)
 
 ```{r, echo=TRUE}
+prop.table(table(most_probable_states_filtered == sample_states))
+prop.table(table(most_probable_states_smoothed == sample_states))
+prop.table(table(most_probable_path == sample_states))
 
+get_accuracy_filtered(robot_hmm, samples_hmm, states)
+get_accuracy_smoothed(robot_hmm, samples_hmm, states)
+get_accuracy_viterbi(robot_hmm, samples_hmm, states)
 ```
 
 # 5)
 
 ```{r, echo=TRUE}
+nsamples <- 100
+niters <- 100
+
+filtered_acc <- rep(0, niters)
+smoothed_acc <- rep(0, niters)
+viterbi_acc <- rep(0, niters)
+
+for (i in 1:niters) {
+    samples <- simHMM(robot_hmm, nsamples)
+    filtered_acc[i] <- get_accuracy_filtered(robot_hmm, samples, states)
+    smoothed_acc[i] <- get_accuracy_smoothed(robot_hmm, samples, states)
+    viterbi_acc[i] <- get_accuracy_viterbi(robot_hmm, samples, states)
+}
 
 ```
 
