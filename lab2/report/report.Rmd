@@ -22,6 +22,8 @@ knitr::opts_chunk$set(fig.pos='H', fig.align='center')
 
 ```{r, echo=TRUE}
 library(HMM)
+library(ggplot2)
+library(entropy)
 
 ## Hidden variables (true positions)
 states <- 1:10
@@ -124,6 +126,19 @@ sample_obs <- samples_hmm$observation
 most_probable_states_filtered <- get_most_probable_states_by_filtered(robot_hmm, sample_obs, states)
 most_probable_states_smoothed <- get_most_probable_states_by_smoothed(robot_hmm, sample_obs, states)
 most_probable_path <- get_most_probable_path_by_viterbi(robot_hmm, sample_obs)
+
+plot_data <- data.frame(x=1:length(most_probable_path),
+                        y1=sample_states,
+                        y2=most_probable_path)
+ggplot(plot_data) +
+    geom_step(aes(x=x, y=y1, color="True")) +
+    geom_step(aes(x=x, y=y2, color="Viterbi")) +
+    scale_colour_manual("",
+                        breaks=c("True", "Viterbi"),
+                        values=c("blue", "red")) +
+    xlab("time") + ylab("state") +
+    scale_x_discrete(limits=seq(0, 100, by=10)) +
+    scale_y_discrete(limits=states)
 ```
 
 # 4)
@@ -160,8 +175,6 @@ boxplot(plot_data, ylab="accuracy", xlab="method")
 # 6)
 
 ```{r, echo=TRUE}
-library(entropy)
-
 filtered_probs <- compute_filtered_probs(robot_hmm, samples_hmm$observation)
 filtered_entropy <- apply(filtered_probs, 2, entropy.empirical)
 plot(filtered_entropy, type="l")
