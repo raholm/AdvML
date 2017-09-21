@@ -61,14 +61,20 @@ robot_hmm <- initHMM(states, symbols,
                      startProbs=start_probs,
                      transProbs=transition_probs,
                      emissionProbs=emission_probs)
+print(robot_hmm)
 ```
+
+\newpage
 
 # 2)
 
 ```{r, echo=TRUE}
-set.seed(12345)
+set.seed(123)
 samples_hmm <- simHMM(robot_hmm, 100)
+print(samples_hmm)
 ```
+
+\newpage
 
 # 3)
 
@@ -126,7 +132,25 @@ sample_obs <- samples_hmm$observation
 most_probable_states_filtered <- get_most_probable_states_by_filtered(robot_hmm, sample_obs, states)
 most_probable_states_smoothed <- get_most_probable_states_by_smoothed(robot_hmm, sample_obs, states)
 most_probable_path <- get_most_probable_path_by_viterbi(robot_hmm, sample_obs)
+```
 
+```{r, echo=FALSE}
+filtered_probs <- compute_filtered_probs(robot_hmm, sample_obs)
+smoothed_probs <- compute_smoothed_probs(robot_hmm, sample_obs)
+
+old <- par(mfrow=c(1, 2))
+image(t(filtered_probs), axes=FALSE, main="Filtered")
+axis(1, at=seq(0, 1, length=100), labels=1:100)
+axis(2, at=seq(0, 1, length=length(states)), labels=states)
+image(t(smoothed_probs), axes=FALSE, main="Smoothed")
+axis(1, at=seq(0, 1, length=100), labels=1:100)
+axis(2, at=seq(0, 1, length=length(states)), labels=states)
+par(old)
+```
+
+The heatmaps show the state distributions in each timestep over 100 timesteps. A red color means low probability and the brigther the color, the higher the probability. We can clearly see that the smoothed probabilities have higher concentration than those found by filtered method. This is as we expect since smoothed uses the whole dataset for each estimation and is therefore more certain of its estimation.
+
+```{r, echo=FALSE}
 plot_data <- data.frame(x=1:length(most_probable_path),
                         y1=sample_states,
                         y2=most_probable_path)
@@ -141,6 +165,10 @@ ggplot(plot_data) +
     scale_y_discrete(limits=states)
 ```
 
+The plot above shows the true states versus the most probable path found by the Viterbi algorithm. The general pattern is very similar for both but the predicted path is not quite right.
+
+\newpage
+
 # 4)
 
 ```{r, echo=TRUE}
@@ -149,11 +177,15 @@ get_accuracy_smoothed(robot_hmm, samples_hmm, states)
 get_accuracy_viterbi(robot_hmm, samples_hmm, states)
 ```
 
+As we expect, the accuracy is higher for smoothed/filtered methods compared to Viterbi. And the smoothed method is superior.
+
+\newpage
+
 # 5)
 
 ```{r, echo=TRUE}
 nsamples <- 100
-niters <- 1000
+niters <- 100
 
 filtered_acc <- rep(0, niters)
 smoothed_acc <- rep(0, niters)
@@ -165,12 +197,18 @@ for (i in 1:niters) {
     smoothed_acc[i] <- get_accuracy_smoothed(robot_hmm, samples, states)
     viterbi_acc[i] <- get_accuracy_viterbi(robot_hmm, samples, states)
 }
+```
 
+```{r, echo=TRUE}
 plot_data <- data.frame(filtered=filtered_acc,
                         smoothed=smoothed_acc,
                         viterbi=viterbi_acc)
 boxplot(plot_data, ylab="accuracy", xlab="method")
 ```
+
+The accuracy of the smoothed probabilities is higher due to the fact that is uses all the data, past, present, and future, in its calculations. The Vitebi has the worst accuracy because it puts an extra contraint in its predictions, the path must be a valid path and thus mistakes early on propagate over the whole timespan. The smoothed/filtered probabilities are rather point estimates and does not have to follow a valid path.
+
+\newpage
 
 # 6)
 
@@ -180,7 +218,19 @@ filtered_entropy <- apply(filtered_probs, 2, entropy.empirical)
 plot(filtered_entropy, type="l")
 ```
 
+The plot above shows the empirical entropy of the distribution estimated by the filetered method for each step. We can clearly see that the entropy does not decrease over time, which indicates that our estimates do not increase in certainty. This is because the underlying state also changes for each timestep, thus the distribution is not statitionary.
+
+\newpage
+
 # 7)
+
+We can compute the probability of next state as
+
+\begin{equation*}
+p(x_{t + 1}) = p(x_{t + 1} | x_t) p(x_t),
+\end{equation*}
+
+where $p(x_{t + 1} | x_t)$ is specified by the transition matrix and $p(x_t)$ is the distribution estimated by the filtered or smoothed method.
 
 ```{r, echo=TRUE}
 probs <- compute_filtered_probs(robot_hmm, samples_hmm$observation)[, length(samples_hmm$observation)]
