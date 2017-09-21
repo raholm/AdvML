@@ -1,0 +1,239 @@
+---
+title: "Advanced Machine Learning"
+subtitle: "Lab 2"
+author: "Rasmus Holm (rasho258), Nikolajs Prihodko (nikpr874), Sascha Schmalz (sassc662), Emil K Svensson (emisv463)"
+date: "`r Sys.Date()`"
+fontsize: 10pt
+geometry: margin=1in
+output:
+    pdf_document:
+        toc: false
+        number_sections: false
+        fig_caption: yes
+        keep_tex: no
+---
+
+```{r global-options, echo = FALSE, eval=TRUE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(fig.pos='H', fig.align='center')
+```
+
+# 1)
+
+```{r, echo=TRUE}
+library(HMM)
+library(ggplot2)
+library(entropy)
+
+## Hidden variables (true positions)
+states <- 1:10
+
+transition_probs <- matrix(c(0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0.5, 0.5, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0.5, 0.5, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0.5, 0.5, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0.5, 0.5, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.5,
+                             0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0.5),
+                           byrow=TRUE, nrow=length(states), ncol=length(states))
+
+## Emission variables (observed positions)
+symbols <- 1:10
+
+emission_probs <- matrix(c(0.2, 0.2, 0.2, 0, 0, 0, 0, 0, 0.2, 0.2,
+                           0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0, 0.2,
+                           0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0,
+                           0, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0,
+                           0, 0, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0,
+                           0, 0, 0, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0,
+                           0, 0, 0, 0, 0.2, 0.2, 0.2, 0.2, 0.2, 0,
+                           0, 0, 0, 0, 0, 0.2, 0.2, 0.2, 0.2, 0.2,
+                           0.2, 0, 0, 0, 0, 0, 0.2, 0.2, 0.2, 0.2,
+                           0.2, 0.2, 0, 0, 0, 0, 0, 0.2, 0.2, 0.2),
+                         byrow=TRUE, nrow=length(states), ncol=length(states))
+
+start_probs <- rep(1, length(states)) / length(states)
+
+robot_hmm <- initHMM(states, symbols,
+                     startProbs=start_probs,
+                     transProbs=transition_probs,
+                     emissionProbs=emission_probs)
+print(robot_hmm)
+```
+
+\newpage
+
+# 2)
+
+```{r, echo=TRUE}
+set.seed(123)
+samples_hmm <- simHMM(robot_hmm, 100)
+print(samples_hmm)
+```
+
+\newpage
+
+# 3)
+
+```{r, echo=TRUE}
+compute_filtered_probs <- function(hmm, observations) {
+    log_probs <- forward(hmm, observations)
+    probs <- prop.table(exp(log_probs), 2)
+    probs
+}
+
+get_most_probable_states_by_filtered <- function(hmm, observations, states) {
+    probs <- compute_filtered_probs(hmm, observations)
+    most_probable_states <- as.numeric(apply(probs, 2, function(x) {
+        states[which.max(x)]
+    }))
+    most_probable_states
+}
+
+compute_smoothed_probs <- function(hmm, observations) {
+    probs <- posterior(hmm, observations)
+    probs
+}
+
+get_most_probable_states_by_smoothed <- function(hmm, observations, states) {
+    probs <- compute_smoothed_probs(hmm, observations)
+    most_probable_states <- as.numeric(apply(probs, 2, function(x) {
+        states[which.max(x)]
+    }))
+    most_probable_states
+}
+
+get_most_probable_path_by_viterbi <- function(hmm, observations) {
+    most_probable_path <- viterbi(hmm, observations)
+    most_probable_path
+}
+
+get_accuracy_filtered <- function(hmm, samples, states) {
+    predicted_states <- get_most_probable_states_by_filtered(hmm, samples$observation, states)
+    sum(predicted_states == samples$states) / length(predicted_states)
+}
+
+get_accuracy_smoothed <- function(hmm, samples, states) {
+    predicted_states <- get_most_probable_states_by_smoothed(hmm, samples$observation, states)
+    sum(predicted_states == samples$states) / length(predicted_states)
+}
+
+get_accuracy_viterbi <- function(hmm, samples, states) {
+    predicted_states <- get_most_probable_path_by_viterbi(hmm, samples$observation)
+    sum(predicted_states == samples$states) / length(predicted_states)
+}
+
+sample_states <- samples_hmm$states
+sample_obs <- samples_hmm$observation
+
+most_probable_states_filtered <- get_most_probable_states_by_filtered(robot_hmm, sample_obs, states)
+most_probable_states_smoothed <- get_most_probable_states_by_smoothed(robot_hmm, sample_obs, states)
+most_probable_path <- get_most_probable_path_by_viterbi(robot_hmm, sample_obs)
+```
+
+```{r, echo=FALSE}
+filtered_probs <- compute_filtered_probs(robot_hmm, sample_obs)
+smoothed_probs <- compute_smoothed_probs(robot_hmm, sample_obs)
+
+old <- par(mfrow=c(1, 2))
+image(t(filtered_probs), axes=FALSE, main="Filtered")
+axis(1, at=seq(0, 1, length=100), labels=1:100)
+axis(2, at=seq(0, 1, length=length(states)), labels=states)
+image(t(smoothed_probs), axes=FALSE, main="Smoothed")
+axis(1, at=seq(0, 1, length=100), labels=1:100)
+axis(2, at=seq(0, 1, length=length(states)), labels=states)
+par(old)
+```
+
+The heatmaps shows the state distributions in each timestep over 100 timesteps. A red color means low probability and the brigther the color, the higher the probability. We can clearly see that the smoothed probabilities have higher concentration than those found by filtered method. This is as we expect since smoothed uses the whole dataset for each estimation.
+
+```{r, echo=FALSE}
+plot_data <- data.frame(x=1:length(most_probable_path),
+                        y1=sample_states,
+                        y2=most_probable_path)
+ggplot(plot_data) +
+    geom_step(aes(x=x, y=y1, color="True")) +
+    geom_step(aes(x=x, y=y2, color="Viterbi")) +
+    scale_colour_manual("",
+                        breaks=c("True", "Viterbi"),
+                        values=c("blue", "red")) +
+    xlab("time") + ylab("state") +
+    scale_x_discrete(limits=seq(0, 100, by=10)) +
+    scale_y_discrete(limits=states)
+```
+
+The plot above shows the true states versus the most probable path found by the Viterbi algorithm. The general pattern is very similar for both but the predicted path is not quite right.
+
+\newpage
+
+# 4)
+
+```{r, echo=TRUE}
+get_accuracy_filtered(robot_hmm, samples_hmm, states)
+get_accuracy_smoothed(robot_hmm, samples_hmm, states)
+get_accuracy_viterbi(robot_hmm, samples_hmm, states)
+```
+
+As we expect, the accuracy is higher for smoothed/filtered methods compared to Viterbi. And the smoothed method is superior.
+
+\newpage
+
+# 5)
+
+```{r, echo=TRUE}
+nsamples <- 100
+niters <- 100
+
+filtered_acc <- rep(0, niters)
+smoothed_acc <- rep(0, niters)
+viterbi_acc <- rep(0, niters)
+
+for (i in 1:niters) {
+    samples <- simHMM(robot_hmm, nsamples)
+    filtered_acc[i] <- get_accuracy_filtered(robot_hmm, samples, states)
+    smoothed_acc[i] <- get_accuracy_smoothed(robot_hmm, samples, states)
+    viterbi_acc[i] <- get_accuracy_viterbi(robot_hmm, samples, states)
+}
+```
+
+```{r, echo=TRUE}
+plot_data <- data.frame(filtered=filtered_acc,
+                        smoothed=smoothed_acc,
+                        viterbi=viterbi_acc)
+boxplot(plot_data, ylab="accuracy", xlab="method")
+```
+
+The accuracy of the smoothed probabilities is higher than the one of the filtered probabilities because not only information from the past but also information from future states are used for calculation. The accuracy of the smoothed probabilities is also better than the accuracy of the most probable path because smoothed probabilities have a higher flexibility. The results of the most probable path are more restricted in a sense that mistakes from previous steps contribute highly to the calculation of succeeding steps.
+
+\newpage
+
+# 6)
+
+```{r, echo=TRUE}
+filtered_probs <- compute_filtered_probs(robot_hmm, samples_hmm$observation)
+filtered_entropy <- apply(filtered_probs, 2, entropy.empirical)
+plot(filtered_entropy, type="l")
+```
+
+The plot of the entropy for each step is shown above. It is quite clear that the entropy does not decrease over time, which means that we are not more certain in our estimates as the number of observations increases. This happens, because with every new observation the underlying state also changes. This is in contrast to increasing sample size, when the underlying measure of interest (e.g. distribution parameters) stay the same.
+
+\newpage
+
+# 7)
+
+We can compute the probability of next state as
+
+\begin{equation*}
+p(x_{t + 1}) = p(x_{t + 1} | x_t) p(x_t),
+\end{equation*}
+
+where $p(x_{t + 1} | x_t)$ is specified by the transition matrix and $p(x_t)$ is the distribution estimated from the filtered or smoothed method.
+
+```{r, echo=TRUE}
+probs <- compute_filtered_probs(robot_hmm, samples_hmm$observation)[, length(samples_hmm$observation)]
+prediction <- probs %*% robot_hmm$transProbs
+prediction
+```
