@@ -1,0 +1,98 @@
+---
+title: "Advanced Machine Learning"
+subtitle: "Lab 3"
+author: "Rasmus Holm"
+date: "`r Sys.Date()`"
+fontsize: 10pt
+geometry: margin=1in
+output:
+    pdf_document:
+        toc: false
+        number_sections: false
+        fig_caption: yes
+        keep_tex: no
+---
+
+```{r global-options, echo = FALSE, eval=TRUE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(fig.pos='H', fig.align='center')
+```
+
+# 1)
+
+## a)
+
+```{r}
+library(kernlab)
+
+distance1 <- function(x) {
+    as.matrix(dist(x))
+}
+
+distance2 <- function(x, y) {
+    ny <- length(y)
+    nx <- length(x)
+    n <- nx + ny
+    as.matrix(as.matrix(dist(c(x, y)))[1:nx, (nx + 1):n], nx, ny)
+}
+
+squared_exp_kernel <- function(sigma, l) {
+    function(distances) {
+        as.matrix(sigma^2 * exp(-0.5 * (distances / l)^2))
+    }
+}
+
+SquaredExpKernel <- function(sigmaF=1, l=3){
+    function(x1, x2) {
+        n1 <- length(x1)
+        n2 <- length(x2)
+        K <- matrix(NA, n1, n2)
+        for (i in 1:n2){
+            K[, i] <- sigmaF^2*exp(-0.5*((x1 - x2[i]) / l)^2)
+        }
+        return(K)
+    }
+}
+
+
+
+posterior_gp <- function(x, y, noise, kernel, x_star) {
+    Kxx <- kernel(x, x)
+    Kxs <- kernel(x, x_star)
+    Kss <- kernel(x_star, x_star)
+
+    L <- t(chol(Kxx + diag(noise, nrow(Kxx), ncol(Kxx))))
+    alpha <- solve(t(L), solve(L, y))
+    fstar_mean <- t(Kxs) %*% alpha
+    v <- solve(L, Kxs)
+    fstar_var <- Kss - t(v) %*% v
+    list(mean=fstar_mean, variance=fstar_var)
+}
+```
+
+## b)
+
+```{r}
+## kernel <- squared_exp_kernel(1, 0.3)
+kernel <- SquaredExpKernel(1, 0.3)
+x_star <- seq(-1, 1, length=100)
+x <- c(0.4)
+y <- c(0.719)
+noise <- 0.1
+
+pgp <- posterior_gp(x, y, noise, kernel, x_star)
+
+pgp$variance
+plot(x_star, pgp$mean, type="l")
+```
+
+## d)
+
+```{r}
+x <- c(-1.0, -0.6, -0.2, 0.4, 0.8)
+y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
+
+pgp <- posterior_gp(x, y, noise, kernel, x_star)
+
+plot(x_star, pgp$mean, type="l")
+```
