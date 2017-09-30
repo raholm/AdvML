@@ -18,39 +18,27 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 knitr::opts_chunk$set(fig.pos='H', fig.align='center')
 ```
 
+```{r}
+library(kernlab)
+library(AtmRay)
+```
+
 # 1)
 
 ## a)
 
 ```{r}
-library(kernlab)
-
-distance1 <- function(x) {
-    as.matrix(dist(x))
-}
-
-distance2 <- function(x, y) {
-    ny <- length(y)
-    nx <- length(x)
-    n <- nx + ny
-    as.matrix(as.matrix(dist(c(x, y)))[1:nx, (nx + 1):n], nx, ny)
-}
-
-squared_exp_kernel <- function(sigma, l) {
-    function(distances) {
-        as.matrix(sigma^2 * exp(-0.5 * (distances / l)^2))
-    }
-}
-
-SquaredExpKernel <- function(sigmaF=1, l=3){
+squared_exp_kernel <- function(sigma, l){
     function(x1, x2) {
         n1 <- length(x1)
         n2 <- length(x2)
         K <- matrix(NA, n1, n2)
+
         for (i in 1:n2){
-            K[, i] <- sigmaF^2*exp(-0.5*((x1 - x2[i]) / l)^2)
+            K[, i] <- sigma^2 * exp(-0.5 * ((x1 - x2[i]) / l)^2)
         }
-        return(K)
+
+        K
     }
 }
 
@@ -69,8 +57,8 @@ posterior_gp <- function(x, y, noise, kernel, x_star) {
 
 plot_gp <- function(posterior, x_star) {
     mean <- posterior$mean
-    lower_band <- mean - 1.96 * diag(posterior$variance)
-    upper_band <- mean + 1.96 * diag(posterior$variance)
+    lower_band <- mean - 1.96 * sqrt(diag(posterior$variance))
+    upper_band <- mean + 1.96 * sqrt(diag(posterior$variance))
 
     plot(x_star, mean, type="l", ylim=c(min(lower_band), max(upper_band)))
     lines(x_star, lower_band, col="red")
@@ -81,8 +69,7 @@ plot_gp <- function(posterior, x_star) {
 ## b)
 
 ```{r}
-## kernel <- squared_exp_kernel(1, 0.3)
-kernel <- SquaredExpKernel(1, 0.3)
+kernel <- squared_exp_kernel(1, 0.3)
 x_star <- seq(-1, 1, length=100)
 x <- c(0.4)
 y <- c(0.719)
@@ -93,13 +80,263 @@ pgp <- posterior_gp(x, y, noise, kernel, x_star)
 plot_gp(pgp, x_star)
 ```
 
+## c)
+
+```{r}
+
+```
+
 ## d)
 
 ```{r}
+kernel <- squared_exp_kernel(1, 0.3)
+x_star <- seq(-1, 1, length=100)
 x <- c(-1.0, -0.6, -0.2, 0.4, 0.8)
 y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
+noise <- 0.1
 
 pgp <- posterior_gp(x, y, noise, kernel, x_star)
 
 plot_gp(pgp, x_star)
+```
+
+## e)
+
+```{r}
+kernel <- squared_exp_kernel(1, 1)
+x_star <- seq(-1, 1, length=100)
+x <- c(-1.0, -0.6, -0.2, 0.4, 0.8)
+y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
+noise <- 0.1
+
+pgp <- posterior_gp(x, y, noise, kernel, x_star)
+
+plot_gp(pgp, x_star)
+```
+
+\newpage
+
+# 2)
+
+```{r}
+data <- read.csv("https://github.com/STIMALiU/AdvMLCourse/raw/master/GaussianProcess/Code/TempTullinge.csv",
+                 header=TRUE, sep=";")
+data$time<- 1:nrow(data)
+data$day <- 0:(nrow(data) - 1) %% 365 + 1
+
+thinned_data <- data[(data$time - 1) %% 5 == 0, ]
+```
+
+```{r}
+single_squared_exp_kernel <- function(sigma, l) {
+    f <- function(x1, x2) {
+        sigma^2 * exp(-0.5 * ((x1 - x2) / l)^2)
+    }
+    class(f) <- "kernel"
+    f
+}
+
+single_periodic_kernel <- function(sigma, l1, l2, d) {
+    f <- function(x1, x2) {
+        sigma^2 *
+            exp(-2 * sin(pi * abs(x1 - x2) / d) / l1^2) *
+            exp(- (1 / 2) * ((x1 - x2) / l)^2)
+    }
+    class(f) <- "kernel"
+    f
+}
+```
+
+## a)
+
+```{r}
+x <- c(1, 3, 4)
+x_star <- c(2, 3, 4)
+
+kernel <- single_squared_exp_kernel(1, 1)
+kernelMatrix(kernel, x, x_star)
+```
+
+## b)
+
+```{r}
+kernel <- single_squared_exp_kernel(20, 0.2)
+
+lm_fit <- lm(temp ~ poly(time, 2), thinned_data)
+sigma <- sd(resid(lm_fit))
+
+gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma)
+predicted <- predict(gp_fit, thinned_data)
+
+plot(thinned_data$time, predicted, type="p", xlab="time", ylab="temp")
+lines(thinned_data$time, predicted, col="red", lwd=2)
+```
+
+## c)
+
+```{r}
+
+```
+
+## d)
+
+```{r}
+kernel <- single_squared_exp_kernel(20, 1.2)
+
+gp_fit <- gausspr(temp ~ day, thinned_data, kernel=kernel)
+predicted <- predict(gp_fit, thinned_data)
+
+plot(thinned_data$time, predicted, type="p", xlab="time", ylab="temp")
+lines(thinned_data$time, predicted, col="red", lwd=2)
+```
+
+## e)
+
+```{r}
+kernel <- single_periodic_kernel(20, 1, 10, 365 / sd(thinned_data$time))
+
+gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel)
+predicted <- predict(gp_fit, thinned_data)
+
+plot(thinned_data$time, predicted, type="p", xlab="time", ylab="temp")
+lines(thinned_data$time, predicted, col="red", lwd=2)
+```
+
+\newpage
+
+# 3)
+
+```{r}
+data <- read.csv("https://github.com/STIMALiU/AdvMLCourse/raw/master/GaussianProcess/Code/banknoteFraud.csv",
+                 header=FALSE, sep=",")
+names(data) <- c("varWave", "skewWave", "kurtWave", "entropyWave", "fraud")
+data[, 5] <- as.factor(data[, 5])
+
+set.seed(111)
+train_idx <- sample(1:dim(data)[1], size = 1000, replace = FALSE)
+train <- data[train_idx,]
+test <- data[-train_idx,]
+```
+
+## a)
+
+```{r}
+gp_fit <- gausspr(fraud ~ varWave + skewWave, data=train)
+train_predictions <- predict(gp_fit, train)
+train_tbl <- table(train_predictions, train$fraud)
+train_acc <- sum(diag(train_tbl)) / sum(train_tbl)
+train_tbl
+train_acc
+```
+
+```{r}
+x1 <- seq(min(train$varWave), max(train$varWave), length=100)
+x2 <- seq(min(train$skewWave), max(train$skewWave), length=100)
+grid_points <- meshgrid(x1, x2)
+grid_points <- cbind(c(grid_points$x), c(grid_points$y))
+grid_points <- data.frame(gridPoints)
+names(grid_points) <- c("varWave", "skewWave")
+predicted_probs <- predict(gp_fit, grid_points, type="probabilities")
+
+## Plotting for Prob(Non-Fraud)
+contour(x1, x2, matrix(probPreds[, 1],100), 20,
+        xlab = "varWave", ylab="skewWave",
+        main = 'Pr(Non-Fraud)')
+points(train$varWave[train$fraud == 0], train$skewWave[train$fraud == 0], col="red")
+points(train$varWave[train$fraud == 1], train$skewWave[train$fraud == 1], col="blue")
+
+## Plotting for Prob(Fraud)
+contour(x1, x2, matrix(probPreds[, 2],100), 20,
+        xlab = "varWave", ylab="skewWave",
+        main = 'Pr(Fraud)')
+points(train$varWave[train$fraud == 0], train$skewWave[train$fraud == 0], col="red")
+points(train$varWave[train$fraud == 1], train$skewWave[train$fraud == 1], col="blue")
+```
+
+## b)
+
+```{r}
+test_predictions <- predict(gp_fit, test)
+test_tbl <- table(test_predictions, test$fraud)
+test_acc <- sum(diag(test_tbl)) / sum(test_tbl)
+test_tbl
+test_acc
+```
+
+## c)
+
+```{r}
+gp_fit <- gausspr(fraud ~ varWave + skewWave + kurtWave + entropyWave, data=train)
+train_predictions <- predict(gp_fit, train)
+train_tbl <- table(train_predictions, train$fraud)
+train_acc <- sum(diag(train_tbl)) / sum(train_tbl)
+train_tbl
+train_acc
+
+test_predictions <- predict(gp_fit, test)
+test_tbl <- table(test_predictions, test$fraud)
+test_acc <- sum(diag(test_tbl)) / sum(test_tbl)
+test_tbl
+test_acc
+```
+
+```{r, eval=FALSE, echo=FALSE}
+data(iris)
+GPfitIris <- gausspr(Species ~  Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data=iris)
+GPfitIris
+
+                                        # predict on the training set
+predict(GPfitIris,iris[,1:4])
+table(predict(GPfitIris,iris[,1:4]), iris[,5]) # confusion matrix
+
+                                        # Now using only Sepal.Length and Sepal.Width to classify
+GPfitIris <- gausspr(Species ~  Sepal.Length + Sepal.Width, data=iris)
+GPfitIris
+                                        # predict on the training set
+predict(GPfitIris,iris[,1:2])
+table(predict(GPfitIris,iris[,1:2]), iris[,5]) # confusion matrix
+
+                                        # Now using only  Petal.Length + Petal.Width to classify
+GPfitIris <- gausspr(Species ~ Petal.Length + Petal.Width, data=iris)
+GPfitIris
+                                        # predict on the training set
+predict(GPfitIris,iris[,3:4])
+table(predict(GPfitIris,iris[,3:4]), iris[,5]) # confusion matrix
+
+                                        # class probabilities
+probPreds <- predict(GPfitIris, iris[,3:4], type="probabilities")
+x1 <- seq(min(iris[,3]),max(iris[,3]),length=100)
+x2 <- seq(min(iris[,4]),max(iris[,4]),length=100)
+gridPoints <- meshgrid(x1, x2)
+gridPoints <- cbind(c(gridPoints$x), c(gridPoints$y))
+
+gridPoints <- data.frame(gridPoints)
+names(gridPoints) <- names(iris)[3:4]
+probPreds <- predict(GPfitIris, gridPoints, type="probabilities")
+
+                                        # Plotting for Prob(setosa)
+contour(x1,x2,matrix(probPreds[,1],100), 20, xlab = "Petal.Length", ylab = "Petal.Width", main = 'Prob(Setosa) - Setosa is red')
+points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red")
+points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue")
+points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green")
+
+                                        # Plotting for Prob(Versicolor)
+contour(x1,x2,matrix(probPreds[,2],100), 20, xlab = "Petal.Length", ylab = "Petal.Width", main = 'Prob(Versicolor) - Versicolor is green')
+points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red")
+points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue")
+points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green")
+
+
+                                        # Plotting for Prob(virginica)
+contour(x1,x2,matrix(probPreds[,3],100), 20, xlab = "Petal.Length", ylab = "Petal.Width", main = 'Prob(Virginica) - Virginica is blue')
+points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red")
+points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue")
+points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green")
+
+                                        # Plotting the decision boundaries
+meanPred <- matrix(max.col(probPreds),100)
+plot(gridPoints,  pch=".", cex=3, col=ifelse(meanPred==1, "red", ifelse(meanPred==2, "green", "blue")))
+points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red", cex=10, pch=".")
+points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue",  cex=10, pch=".")
+points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green",  cex=10, pch=".")
 ```
