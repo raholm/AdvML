@@ -54,8 +54,6 @@ SquaredExpKernel <- function(sigmaF=1, l=3){
     }
 }
 
-
-
 posterior_gp <- function(x, y, noise, kernel, x_star) {
     Kxx <- kernel(x, x)
     Kxs <- kernel(x, x_star)
@@ -67,6 +65,16 @@ posterior_gp <- function(x, y, noise, kernel, x_star) {
     v <- solve(L, Kxs)
     fstar_var <- Kss - t(v) %*% v
     list(mean=fstar_mean, variance=fstar_var)
+}
+
+plot_gp <- function(posterior, x_star) {
+    mean <- posterior$mean
+    lower_band <- mean - 1.96 * diag(posterior$variance)
+    upper_band <- mean + 1.96 * diag(posterior$variance)
+
+    plot(x_star, mean, type="l", ylim=c(min(lower_band), max(upper_band)))
+    lines(x_star, lower_band, col="red")
+    lines(x_star, upper_band, col="red")
 }
 ```
 
@@ -82,8 +90,7 @@ noise <- 0.1
 
 pgp <- posterior_gp(x, y, noise, kernel, x_star)
 
-pgp$variance
-plot(x_star, pgp$mean, type="l")
+plot_gp(pgp, x_star)
 ```
 
 ## d)
@@ -94,5 +101,5 @@ y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
 
 pgp <- posterior_gp(x, y, noise, kernel, x_star)
 
-plot(x_star, pgp$mean, type="l")
+plot_gp(pgp, x_star)
 ```
