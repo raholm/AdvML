@@ -42,17 +42,17 @@ squared_exp_kernel <- function(sigma, l){
     }
 }
 
-posterior_gp <- function(x, y, noise, kernel, x_star) {
+posterior_gp <- function(x_new, x, y, noise, kernel) {
     Kxx <- kernel(x, x)
-    Kxs <- kernel(x, x_star)
-    Kss <- kernel(x_star, x_star)
+    Kxs <- kernel(x, x_new)
+    Kss <- kernel(x_new, x_new)
 
     L <- t(chol(Kxx + diag(noise, nrow(Kxx), ncol(Kxx))))
     alpha <- solve(t(L), solve(L, y))
-    fstar_mean <- t(Kxs) %*% alpha
+    mean <- t(Kxs) %*% alpha
     v <- solve(L, Kxs)
-    fstar_var <- Kss - t(v) %*% v
-    list(mean=fstar_mean, variance=fstar_var)
+    covariance <- Kss - t(v) %*% v
+    list(mean=mean, variance=covariance)
 }
 
 plot_gp <- function(posterior, x_star) {
@@ -75,15 +75,41 @@ x <- c(0.4)
 y <- c(0.719)
 noise <- 0.1
 
-pgp <- posterior_gp(x, y, noise, kernel, x_star)
+pgp <- posterior_gp(x_star, x, y, noise, kernel)
 
 plot_gp(pgp, x_star)
+points(x, y)
 ```
 
 ## c)
 
 ```{r}
+kernel <- squared_exp_kernel(1, 0.3)
+x_star <- seq(-1, 1, length=100)
+x <- c(0.4)
+y <- c(0.719)
+noise <- 0.1
 
+x_new <- c(-0.6)
+y_new <- c(-0.044)
+
+prior_mean <- pgp$mean
+prior_covariance <- pgp$variance
+
+## Should it be noise here?
+posterior_mean <- prior_mean +
+    kernel(x_star, x_new) %*% solve(kernel(x_new, x_new) + diag(noise, length(x_new), length(x_new))) %*% t(y_new)
+posterior_covariance <- prior_covariance -
+    kernel(x_star, x_new) %*% solve(kernel(x_new, x_new) + diag(noise, length(x_new), length(x_new))) %*% kernel(x_new, x_star)
+
+mean <- posterior_mean
+lower_band <- mean - 1.96 * sqrt(diag(posterior_covariance))
+upper_band <- mean + 1.96 * sqrt(diag(posterior_covariance))
+
+plot(x_star, mean, type="l", ylim=c(min(lower_band), max(upper_band)))
+points(c(x, x_new), c(y, y_new))
+lines(x_star, lower_band, col="red")
+lines(x_star, upper_band, col="red")
 ```
 
 ## d)
@@ -95,9 +121,10 @@ x <- c(-1.0, -0.6, -0.2, 0.4, 0.8)
 y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
 noise <- 0.1
 
-pgp <- posterior_gp(x, y, noise, kernel, x_star)
+pgp <- posterior_gp(x_star, x, y, noise, kernel)
 
 plot_gp(pgp, x_star)
+points(x, y)
 ```
 
 ## e)
@@ -109,9 +136,10 @@ x <- c(-1.0, -0.6, -0.2, 0.4, 0.8)
 y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
 noise <- 0.1
 
-pgp <- posterior_gp(x, y, noise, kernel, x_star)
+pgp <- posterior_gp(x_star, x, y, noise, kernel)
 
 plot_gp(pgp, x_star)
+points(x, y)
 ```
 
 \newpage
@@ -175,7 +203,28 @@ lines(thinned_data$time, predicted, col="red", lwd=2)
 ## c)
 
 ```{r}
+prediction <- function(x_new, x, y, kernel, noise) {
+    K <- kernel(x_new, x)
+    S <- solve(kernel(x, x) + diag(noise, length(x), length(x)))
+    pred <- K %*% S %*% y
+    sigma <- kernel(x_new, x_new) - K %*% S %*% t(K)
+    list(pred=pred, variance=sigma)
+}
 
+kernel <- squared_exp_kernel(20, 0.2)
+x_new <- thinned_data$time
+x <- thinned_data$time
+y <- thinned_data$temp
+
+preds <- prediction(x_new, x, y, kernel, sigma)
+
+mean <- predicted
+lower_band <- mean - 1.96 * sqrt(diag(preds$variance))
+upper_band <- mean + 1.96 * sqrt(diag(preds$variance))
+
+plot(x_new, predicted, ylim=c(min(lower_band), max(upper_band)), type="l")
+lines(x_new, lower_band, col="red")
+lines(x_new, upper_band, col="red")
 ```
 
 ## d)
@@ -272,7 +321,9 @@ train_tbl <- table(train_predictions, train$fraud)
 train_acc <- sum(diag(train_tbl)) / sum(train_tbl)
 train_tbl
 train_acc
+```
 
+```{r}
 test_predictions <- predict(gp_fit, test)
 test_tbl <- table(test_predictions, test$fraud)
 test_acc <- sum(diag(test_tbl)) / sum(test_tbl)
@@ -339,4 +390,58 @@ plot(gridPoints,  pch=".", cex=3, col=ifelse(meanPred==1, "red", ifelse(meanPred
 points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red", cex=10, pch=".")
 points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue",  cex=10, pch=".")
 points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green",  cex=10, pch=".")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+squared_exp_kernel <- function(sigma, l){
+    function(x1, x2) {
+        n1 <- length(x1)
+        n2 <- length(x2)
+        K <- matrix(NA, n1, n2)
+
+        for (i in 1:n2){
+            K[, i] <- sigma^2 * exp(-0.5 * ((x1 - x2[i]) / l)^2)
+        }
+
+        K
+    }
+}
+
+conditional <- function(x_new, x, y, kernel, noise) {
+    B <- kernel(x_new, x)
+    C <- kernel(x, x)
+    A <- kernel(x_new, x_new)
+    N <- diag(noise, nrow(C), ncol(C))
+    E <- solve(C + N)
+
+    mu <- B %*% E %*% y
+    sigma = A - B %*% E %*% t(B)
+
+    list(mean=mu, variance=sigma)
+}
+
+prediction <- function(x_new, x, y, kernel, noise) {
+    K <- kernel(x_new, x)
+    S <- solve(kernel(x, x) + diag(noise, length(x), length(x)))
+    pred <- K %*% S %*% y
+    sigma <- kernel(x_new, x_new) - K %*% S %*% t(K)
+    list(pred=pred, variance=sigma)
+}
+
+kernel <- squared_exp_kernel(1, 0.1)
+x_star <- seq(-3, 3, by=0.01)
+x <- c(-1.0, -0.6, -0.2, 0.4, 0.8)
+y <- c(0.768, -0.044, -0.940, 0.719, -0.664)
+x_new <- seq(-3, 3, by=0.01)
+covariance <- kernel(x, x)
+
+preds <- prediction(x_new, x, y, kernel, 0)
+
+mean <- preds$pred
+lower_band <- mean - 1.96 * sqrt(diag(preds$variance))
+upper_band <- mean + 1.96 * sqrt(diag(preds$variance))
+
+plot(x_new, preds$pred, ylim=c(min(lower_band), max(upper_band)), type="l")
+lines(x_new, lower_band, col="red")
+lines(x_new, upper_band, col="red")
 ```
