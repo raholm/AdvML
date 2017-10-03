@@ -47,7 +47,7 @@ posterior_gp <- function(x_new, x, y, noise, kernel) {
     Kxs <- kernel(x, x_new)
     Kss <- kernel(x_new, x_new)
 
-    L <- t(chol(Kxx + diag(noise, nrow(Kxx), ncol(Kxx))))
+    L <- t(chol(Kxx + diag(noise^2, nrow(Kxx), ncol(Kxx))))
     alpha <- solve(t(L), solve(L, y))
     mean <- t(Kxs) %*% alpha
     v <- solve(L, Kxs)
@@ -98,9 +98,14 @@ prior_covariance <- pgp$variance
 
 ## Should it be noise here?
 posterior_mean <- prior_mean +
-    kernel(x_star, x_new) %*% solve(kernel(x_new, x_new) + diag(noise, length(x_new), length(x_new))) %*% t(y_new)
+    kernel(x_star, x_new) %*%
+    solve(kernel(x_new, x_new) + diag(noise, length(x_new), length(x_new))) %*%
+    t(y_new)
+
 posterior_covariance <- prior_covariance -
-    kernel(x_star, x_new) %*% solve(kernel(x_new, x_new) + diag(noise, length(x_new), length(x_new))) %*% kernel(x_new, x_star)
+    kernel(x_star, x_new) %*%
+    solve(kernel(x_new, x_new) + diag(noise, length(x_new), length(x_new))) %*%
+    kernel(x_new, x_star)
 
 mean <- posterior_mean
 lower_band <- mean - 1.96 * sqrt(diag(posterior_covariance))
@@ -167,7 +172,7 @@ single_squared_exp_kernel <- function(sigma, l) {
 single_periodic_kernel <- function(sigma, l1, l2, d) {
     f <- function(x1, x2) {
         sigma^2 *
-            exp(-2 * sin(pi * abs(x1 - x2) / d) / l1^2) *
+            exp(-2 * (sin(pi * abs(x1 - x2) / d))^2 / l1^2) *
             exp(- (1 / 2) * ((x1 - x2) / l2)^2)
     }
     class(f) <- "kernel"
@@ -193,10 +198,10 @@ kernel <- single_squared_exp_kernel(20, 0.2)
 lm_fit <- lm(temp ~ poly(time, 2), thinned_data)
 sigma <- sd(resid(lm_fit))
 
-gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma)
+gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma^2)
 predicted <- predict(gp_fit, thinned_data)
 
-plot(thinned_data$time, predicted, type="p", xlab="time", ylab="temp")
+plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
 lines(thinned_data$time, predicted, col="red", lwd=2)
 ```
 
@@ -232,10 +237,10 @@ lines(x_new, upper_band, col="red")
 ```{r}
 kernel <- single_squared_exp_kernel(20, 1.2)
 
-gp_fit <- gausspr(temp ~ day, thinned_data, kernel=kernel)
+gp_fit <- gausspr(temp ~ day, thinned_data, kernel=kernel, var=sigma^2)
 predicted <- predict(gp_fit, thinned_data)
 
-plot(thinned_data$time, predicted, type="p", xlab="time", ylab="temp")
+plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
 lines(thinned_data$time, predicted, col="red", lwd=2)
 ```
 
@@ -244,10 +249,10 @@ lines(thinned_data$time, predicted, col="red", lwd=2)
 ```{r}
 kernel <- single_periodic_kernel(20, 1, 10, 365 / sd(thinned_data$time))
 
-gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel)
+gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma^2)
 predicted <- predict(gp_fit, thinned_data)
 
-plot(thinned_data$time, predicted, type="p", xlab="time", ylab="temp")
+plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
 lines(thinned_data$time, predicted, col="red", lwd=2)
 ```
 
@@ -329,67 +334,6 @@ test_tbl <- table(test_predictions, test$fraud)
 test_acc <- sum(diag(test_tbl)) / sum(test_tbl)
 test_tbl
 test_acc
-```
-
-```{r, eval=FALSE, echo=FALSE}
-data(iris)
-GPfitIris <- gausspr(Species ~  Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data=iris)
-GPfitIris
-
-                                        # predict on the training set
-predict(GPfitIris,iris[,1:4])
-table(predict(GPfitIris,iris[,1:4]), iris[,5]) # confusion matrix
-
-                                        # Now using only Sepal.Length and Sepal.Width to classify
-GPfitIris <- gausspr(Species ~  Sepal.Length + Sepal.Width, data=iris)
-GPfitIris
-                                        # predict on the training set
-predict(GPfitIris,iris[,1:2])
-table(predict(GPfitIris,iris[,1:2]), iris[,5]) # confusion matrix
-
-                                        # Now using only  Petal.Length + Petal.Width to classify
-GPfitIris <- gausspr(Species ~ Petal.Length + Petal.Width, data=iris)
-GPfitIris
-                                        # predict on the training set
-predict(GPfitIris,iris[,3:4])
-table(predict(GPfitIris,iris[,3:4]), iris[,5]) # confusion matrix
-
-                                        # class probabilities
-probPreds <- predict(GPfitIris, iris[,3:4], type="probabilities")
-x1 <- seq(min(iris[,3]),max(iris[,3]),length=100)
-x2 <- seq(min(iris[,4]),max(iris[,4]),length=100)
-gridPoints <- meshgrid(x1, x2)
-gridPoints <- cbind(c(gridPoints$x), c(gridPoints$y))
-
-gridPoints <- data.frame(gridPoints)
-names(gridPoints) <- names(iris)[3:4]
-probPreds <- predict(GPfitIris, gridPoints, type="probabilities")
-
-                                        # Plotting for Prob(setosa)
-contour(x1,x2,matrix(probPreds[,1],100), 20, xlab = "Petal.Length", ylab = "Petal.Width", main = 'Prob(Setosa) - Setosa is red')
-points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red")
-points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue")
-points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green")
-
-                                        # Plotting for Prob(Versicolor)
-contour(x1,x2,matrix(probPreds[,2],100), 20, xlab = "Petal.Length", ylab = "Petal.Width", main = 'Prob(Versicolor) - Versicolor is green')
-points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red")
-points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue")
-points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green")
-
-
-                                        # Plotting for Prob(virginica)
-contour(x1,x2,matrix(probPreds[,3],100), 20, xlab = "Petal.Length", ylab = "Petal.Width", main = 'Prob(Virginica) - Virginica is blue')
-points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red")
-points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue")
-points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green")
-
-                                        # Plotting the decision boundaries
-meanPred <- matrix(max.col(probPreds),100)
-plot(gridPoints,  pch=".", cex=3, col=ifelse(meanPred==1, "red", ifelse(meanPred==2, "green", "blue")))
-points(iris[iris[,5]=='setosa',3],iris[iris[,5]=='setosa',4],col="red", cex=10, pch=".")
-points(iris[iris[,5]=='virginica',3],iris[iris[,5]=='virginica',4],col="blue",  cex=10, pch=".")
-points(iris[iris[,5]=='versicolor',3],iris[iris[,5]=='versicolor',4],col="green",  cex=10, pch=".")
 ```
 
 ```{r, echo=FALSE, eval=FALSE}
