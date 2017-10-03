@@ -168,7 +168,7 @@ single_periodic_kernel <- function(sigma, l1, l2, d) {
     f <- function(x1, x2) {
         sigma^2 *
             exp(-2 * sin(pi * abs(x1 - x2) / d) / l1^2) *
-            exp(- (1 / 2) * ((x1 - x2) / l)^2)
+            exp(- (1 / 2) * ((x1 - x2) / l2)^2)
     }
     class(f) <- "kernel"
     f
@@ -279,27 +279,27 @@ train_acc
 ```
 
 ```{r}
-x1 <- seq(min(train$varWave), max(train$varWave), length=100)
-x2 <- seq(min(train$skewWave), max(train$skewWave), length=100)
+x1 <- seq(min(data$varWave), max(data$varWave), length=100)
+x2 <- seq(min(data$skewWave), max(data$skewWave), length=100)
 grid_points <- meshgrid(x1, x2)
 grid_points <- cbind(c(grid_points$x), c(grid_points$y))
-grid_points <- data.frame(gridPoints)
+grid_points <- data.frame(grid_points)
 names(grid_points) <- c("varWave", "skewWave")
 predicted_probs <- predict(gp_fit, grid_points, type="probabilities")
 
 ## Plotting for Prob(Non-Fraud)
-contour(x1, x2, matrix(probPreds[, 1],100), 20,
+contour(x1, x2, matrix(predicted_probs[, 1], 100), 20,
         xlab = "varWave", ylab="skewWave",
         main = 'Pr(Non-Fraud)')
-points(train$varWave[train$fraud == 0], train$skewWave[train$fraud == 0], col="red")
-points(train$varWave[train$fraud == 1], train$skewWave[train$fraud == 1], col="blue")
+points(data$varWave[data$fraud == 0], data$skewWave[data$fraud == 0], col="red")
+points(data$varWave[data$fraud == 1], data$skewWave[data$fraud == 1], col="blue")
 
 ## Plotting for Prob(Fraud)
-contour(x1, x2, matrix(probPreds[, 2],100), 20,
+contour(x1, x2, matrix(predicted_probs[, 2], 100), 20,
         xlab = "varWave", ylab="skewWave",
         main = 'Pr(Fraud)')
-points(train$varWave[train$fraud == 0], train$skewWave[train$fraud == 0], col="red")
-points(train$varWave[train$fraud == 1], train$skewWave[train$fraud == 1], col="blue")
+points(data$varWave[data$fraud == 0], data$skewWave[data$fraud == 0], col="red")
+points(data$varWave[data$fraud == 1], data$skewWave[data$fraud == 1], col="blue")
 ```
 
 ## b)
