@@ -21,5 +21,50 @@ knitr::opts_chunk$set(fig.pos='H', fig.align='center')
 # Assignment 1
 
 ```{r}
+sample_transition_component <- function() {
+    sample(1:3, size=1, prob=rep(1, 3) / 3)
+}
 
+sample_emission_component <- function() {
+    sample(1:3, size=1, prob=rep(1, 3) / 3)
+}
+
+sample_initial_state <- function() {
+    runif(1, 0, 100)
+}
+
+sample_transition <- function(z) {
+    component <- sample_transition_component()
+    mu <- ifelse(component == 1, z, ifelse(component == 2, z + 1, z + 2))
+    sigma <- 1
+    rnorm(1, mean=mu, sd=sigma)
+}
+
+sample_emission <- function(z) {
+    component <- sample_emission_component()
+    mu <- ifelse(component == 1, z, ifelse(component == 2, z - 1, z + 1))
+    sigma <- 1
+    rnorm(1, mean=mu, sd=sigma)
+}
+```
+
+```{r}
+n <- 100
+states <- rep(0, n)
+emissions <- rep(0, n)
+
+initial_state <- sample_initial_state()
+current_state <- initial_state
+
+for (i in 1:n) {
+    current_emission <- sample_emission(current_state)
+
+    states[i] <- current_state
+    emissions[i] <- current_emission
+
+    current_state <- sample_transition(current_state)
+}
+
+plot(states, type="l")
+lines(emissions, col="red")
 ```
