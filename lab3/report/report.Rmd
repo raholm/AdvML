@@ -21,6 +21,7 @@ knitr::opts_chunk$set(fig.pos='H', fig.align='center')
 ```{r}
 library(kernlab)
 library(AtmRay)
+library(knitr)
 ```
 
 # 1)
@@ -147,6 +148,8 @@ plot_gp(pgp, x_star)
 points(x, y)
 ```
 
+We can clearly see that the length scale impact the smoothness of the curve, that is, the higher the length the smoother the curve. Simply a way of controlling under/overfitting.
+
 \newpage
 
 # 2)
@@ -198,11 +201,11 @@ kernel <- single_squared_exp_kernel(20, 0.2)
 lm_fit <- lm(temp ~ poly(time, 2), thinned_data)
 sigma <- sd(resid(lm_fit))
 
-gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma^2)
-predicted <- predict(gp_fit, thinned_data)
+gp_fit1 <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma^2)
+predicted1 <- predict(gp_fit1, thinned_data)
 
 plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
-lines(thinned_data$time, predicted, col="red", lwd=2)
+lines(thinned_data$time, predicted1, col="red", lwd=2)
 ```
 
 ## c)
@@ -227,7 +230,7 @@ mean <- predicted
 lower_band <- mean - 1.96 * sqrt(diag(preds$variance))
 upper_band <- mean + 1.96 * sqrt(diag(preds$variance))
 
-plot(x_new, predicted, ylim=c(min(lower_band), max(upper_band)), type="l")
+plot(x_new, predicted1, ylim=c(min(lower_band), max(upper_band)), type="l")
 lines(x_new, lower_band, col="red")
 lines(x_new, upper_band, col="red")
 ```
@@ -237,11 +240,11 @@ lines(x_new, upper_band, col="red")
 ```{r}
 kernel <- single_squared_exp_kernel(20, 1.2)
 
-gp_fit <- gausspr(temp ~ day, thinned_data, kernel=kernel, var=sigma^2)
-predicted <- predict(gp_fit, thinned_data)
+gp_fit2 <- gausspr(temp ~ day, thinned_data, kernel=kernel, var=sigma^2)
+predicted2 <- predict(gp_fit2, thinned_data)
 
 plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
-lines(thinned_data$time, predicted, col="red", lwd=2)
+lines(thinned_data$time, predicted2, col="red", lwd=2)
 ```
 
 ## e)
@@ -249,12 +252,22 @@ lines(thinned_data$time, predicted, col="red", lwd=2)
 ```{r}
 kernel <- single_periodic_kernel(20, 1, 10, 365 / sd(thinned_data$time))
 
-gp_fit <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma^2)
-predicted <- predict(gp_fit, thinned_data)
+gp_fit3 <- gausspr(temp ~ time, thinned_data, kernel=kernel, var=sigma^2)
+predicted3 <- predict(gp_fit3, thinned_data)
 
 plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
-lines(thinned_data$time, predicted, col="red", lwd=2)
+lines(thinned_data$time, predicted3, col="red", lwd=2)
 ```
+
+```{r, fig.height=6}
+plot(thinned_data$time, thinned_data$temp, type="p", xlab="time", ylab="temp")
+lines(thinned_data$time, predicted1, col="red", lwd=2)
+lines(thinned_data$time, predicted2, col="blue", lwd=2)
+lines(thinned_data$time, predicted3, col="orange", lwd=2)
+legend(1750, -12, legend=c("f(time)", "f(day)", "g(time)"), fill=c("red", "blue", "orange"))
+```
+
+We can see that all the curves are fairly similar and follow the data pretty well. From the data we can clearly see a seasonal pattern which is not really explicitly encoded in the time variable but is in the day variable. We can see that the model using the day variable, the blue line, is more stable and does not try to fit the noise. The model using the periodic kernel, the orange line, do look to follow the seasonal pattern very well but also is affected by the variations that are seen from season to season more so than the blue line. Finally the model that uses the time variable with the squared exponential kernel, the red line, does not really know about the seasonal pattern and just fits the data which it does rather well.
 
 \newpage
 
@@ -278,9 +291,9 @@ test <- data[-train_idx,]
 gp_fit <- gausspr(fraud ~ varWave + skewWave, data=train)
 train_predictions <- predict(gp_fit, train)
 train_tbl <- table(train_predictions, train$fraud)
-train_acc <- sum(diag(train_tbl)) / sum(train_tbl)
+train_acc1 <- sum(diag(train_tbl)) / sum(train_tbl)
 train_tbl
-train_acc
+train_acc1
 ```
 
 ```{r}
@@ -295,14 +308,14 @@ predicted_probs <- predict(gp_fit, grid_points, type="probabilities")
 ## Plotting for Prob(Non-Fraud)
 contour(x1, x2, matrix(predicted_probs[, 1], 100), 20,
         xlab = "varWave", ylab="skewWave",
-        main = 'Pr(Non-Fraud)')
+        main = 'Pr(Non-Fraud) Blue=Fraud, Red=Non-Fraud')
 points(data$varWave[data$fraud == 0], data$skewWave[data$fraud == 0], col="red")
 points(data$varWave[data$fraud == 1], data$skewWave[data$fraud == 1], col="blue")
 
 ## Plotting for Prob(Fraud)
 contour(x1, x2, matrix(predicted_probs[, 2], 100), 20,
         xlab = "varWave", ylab="skewWave",
-        main = 'Pr(Fraud)')
+        main = 'Pr(Fraud) Blue=Fraud, Red=Non-Fraud')
 points(data$varWave[data$fraud == 0], data$skewWave[data$fraud == 0], col="red")
 points(data$varWave[data$fraud == 1], data$skewWave[data$fraud == 1], col="blue")
 ```
@@ -312,9 +325,9 @@ points(data$varWave[data$fraud == 1], data$skewWave[data$fraud == 1], col="blue"
 ```{r}
 test_predictions <- predict(gp_fit, test)
 test_tbl <- table(test_predictions, test$fraud)
-test_acc <- sum(diag(test_tbl)) / sum(test_tbl)
+test_acc1 <- sum(diag(test_tbl)) / sum(test_tbl)
 test_tbl
-test_acc
+test_acc1
 ```
 
 ## c)
@@ -323,18 +336,26 @@ test_acc
 gp_fit <- gausspr(fraud ~ varWave + skewWave + kurtWave + entropyWave, data=train)
 train_predictions <- predict(gp_fit, train)
 train_tbl <- table(train_predictions, train$fraud)
-train_acc <- sum(diag(train_tbl)) / sum(train_tbl)
+train_acc2 <- sum(diag(train_tbl)) / sum(train_tbl)
 train_tbl
-train_acc
+train_acc2
 ```
 
 ```{r}
 test_predictions <- predict(gp_fit, test)
 test_tbl <- table(test_predictions, test$fraud)
-test_acc <- sum(diag(test_tbl)) / sum(test_tbl)
+test_acc2 <- sum(diag(test_tbl)) / sum(test_tbl)
 test_tbl
-test_acc
+test_acc2
 ```
+
+```{r}
+kdata <- data.frame(train_acc=c(train_acc1, train_acc2), test_acc=c(test_acc1, test_acc2))
+rownames(kdata) <- c("two covariates", "four covariates")
+kable(kdata)
+```
+
+We can see that using more covariates do improve both train and test accuracy. Since the test accuracy is increased as well the model may not have overfitted the data.
 
 ```{r, echo=FALSE, eval=FALSE}
 squared_exp_kernel <- function(sigma, l){
