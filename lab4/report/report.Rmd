@@ -46,7 +46,6 @@ sample_emission <- function(z, sigma=1) {
 }
 
 generate_states_and_emissions <- function(n, sigma) {
-    n <- 100
     states <- rep(0, n)
     emissions <- rep(0, n)
 
