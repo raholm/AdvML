@@ -159,8 +159,6 @@ myforward <- function(x, states, prior_density, transition_density, emission_den
     }
 
     for (t in 2:T) {
-        inner_sum <- 0
-
         for (state in states) {
             inner_sum <- 0
 
