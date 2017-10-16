@@ -33,10 +33,10 @@ sample_initial_state <- function() {
     runif(1, 0, 100)
 }
 
-sample_transition <- function(z, sigma=1) {
+sample_transition <- function(z) {
     component <- sample_transition_component()
     mu <- ifelse(component == 1, z, ifelse(component == 2, z + 1, z + 2))
-    rnorm(1, mean=mu, sd=sigma)
+    rnorm(1, mean=mu, sd=1)
 }
 
 sample_emission <- function(z, sigma=1) {
@@ -58,7 +58,7 @@ generate_states_and_emissions <- function(n, sigma) {
         states[i] <- current_state
         emissions[i] <- current_emission
 
-        current_state <- sample_transition(current_state, sigma)
+        current_state <- sample_transition(current_state)
     }
 
     list(states=states, emissions=emissions)
@@ -90,7 +90,7 @@ particle_filtering <- function(x, nparticles, sigma) {
     for (i in 2:steps) {
         predictions <- sample(particles[i - 1, ], size=nparticles,
                               replace=TRUE, prob=weights[i - 1, ])
-        particles[i, ] <- sapply(predictions, sample_transition, sigma=sigma)
+        particles[i, ] <- sapply(predictions, sample_transition)
         weights[i, ] <- get_sampling_weights(x[i], particles[i, ], sigma=sigma)
     }
 
@@ -105,12 +105,14 @@ plot_everything <- function(states, emissions, particles, expected) {
     nparticles <- ncol(particles)
 
     old <- par(mfrow=c(2, 1))
-    plot(states, type="l",
-         main="Black=State, Red=Emission",
+    plot(states, type="l", col="blue",
+         main="Blue=State, Red=Emission",
+         xlab="state",
          ylim=c(min(c(states, emissions)), max(c(states, emissions))))
     lines(emissions, col="red")
-    plot(1:nparticles, states, type="l",
-         main="Black=State, Orange=Expected",
+    plot(1:nparticles, states, type="l", col="blue",
+         main="Blue=State, Orange=Expected",
+         xlab="state",
          ylim=c(min(c(states, expected)), max(c(states, expected))))
     lines(1:nparticles, expected, col="orange")
     par(old)
@@ -123,7 +125,7 @@ plot_everything <- function(states, emissions, particles, expected) {
 
         hist(p, breaks=20,
              main=paste("Step", idx, sep=" "),
-             xlab="val", xlim=c(min(c(p, ex, s, em)), max(c(p, ex, s, em))))
+             xlab="state", xlim=c(min(c(p, ex, s, em)), max(c(p, ex, s, em))))
         abline(v=s, col="blue", lwd=2)
         abline(v=em, col="red", lwd=2)
         abline(v=ex, col="orange", lwd=2)
@@ -134,7 +136,7 @@ plot_everything <- function(states, emissions, particles, expected) {
     plot_helper(33)
     plot_helper(66)
     plot_helper(100)
-    title(main="Red=State, Blue=Emission, Orange=Expected",outer=T)
+    title(main="Blue=State, Red=Emission, Orange=Expected",outer=T)
     par(old)
 }
 ```
@@ -201,6 +203,12 @@ plot_everything(samples$states, samples$emissions, particles$particles, expected
 
 \newpage
 
+# Analysis
+
+Increasing the variance in the emission model will obviously make the readings less reliable. Since the particles are based on the readings they will also become less accurate. However, the particle estimations are still pretty good which indicate that particle filter can handle high uncertainty in the sensor readings and still be useful.
+
+\newpage
+
 # Sigma 1 without weight correction
 
 ```{r}
@@ -219,7 +227,7 @@ particle_filtering_without_correction <- function(x, nparticles, sigma) {
     for (i in 2:steps) {
         predictions <- sample(particles[i - 1, ], size=nparticles,
                               replace=TRUE, prob=weights[i - 1, ])
-        particles[i, ] <- sapply(predictions, sample_transition, sigma=sigma)
+        particles[i, ] <- sapply(predictions, sample_transition)
         weights[i, ] <- get_uniform_sampling_weights(x[i], particles[i, ])
     }
 
