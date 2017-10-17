@@ -18,7 +18,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 knitr::opts_chunk$set(fig.pos='H', fig.align='center')
 ```
 
-# 1)
+# Hidden Markov Models
 
 ```{r, echo=TRUE}
 library(HMM)
@@ -59,18 +59,9 @@ robot_hmm <- initHMM(states, symbols,
                      startProbs=start_probs,
                      transProbs=transition_probs,
                      emissionProbs=emission_probs)
-```
-
-# 2)
-
-```{r, echo=TRUE}
 set.seed(123)
 samples_hmm <- simHMM(robot_hmm, 10)
-```
 
-# 3)
-
-```{r, echo=TRUE}
 compute_filtered_probs <- function(hmm, observations) {
     log_probs <- HMM::forward(hmm, observations)
     probs <- prop.table(exp(log_probs), 2)
@@ -128,7 +119,7 @@ most_probable_path <- get_most_probable_path_by_viterbi(robot_hmm, sample_obs)
 
 \newpage
 
-# Forward-Backward
+## Forward-Backward
 
 ```{r}
 emission_density <- function(x, z) {
@@ -146,7 +137,6 @@ prior_density <- function(z) {
 myforward_backward <- function(x, states, prior_density, transition_density, emission_density) {
     alphas <- myforward(x, states, prior_density, transition_density, emission_density)
     betas <- mybackward(x, states, prior_density, transition_density, emission_density)
-
     list(alpha=alphas, beta=betas)
 }
 
@@ -218,7 +208,7 @@ t(compute_smoothed_probs(robot_hmm, sample_obs))
 
 \newpage
 
-# Viterbi
+## Viterbi
 
 ```{r}
 myviterbi <- function(x, states, prior_density, transition_density, emission_density) {
@@ -253,4 +243,95 @@ myviterbi(x=sample_obs,
           transition_density = transition_density)
 
 HMM::viterbi(robot_hmm, sample_obs)
+```
+
+\newpage
+
+# State Space Models
+
+## Kalman Filter
+
+```{r}
+
+```
+
+## Weather Forecast System
+
+```{r}
+library(HMM)
+
+## States are (1 day ago, 2 days ago)
+## 1: (sunny, sunny), 2: (sunny, rainy), 3: (rainy, sunny), 4: (rainy, rainy)
+states <- 1:4
+
+transition_probs <- matrix(c(0.75, 0, 0.25, 0,
+                             0.5, 0, 0.5, 0,
+                             0, 0.5, 0, 0.5,
+                             0,  0.25, 0, 0.75),
+                           nrow=length(states), ncol=length(states),
+                           byrow=TRUE)
+
+emission_probs <- matrix(c(0.9, 0, 0.1, 0,
+                           0, 0.9, 0, 0.1,
+                           0.1, 0, 0.9, 0,
+                           0, 0.1, 0, 0.9),
+                         nrow=length(states), ncol=length(states),
+                         byrow=TRUE)
+
+robot_hmm <- initHMM(states, states, 1 / length(states), transition_probs, emission_probs)
+
+set.seed(12345)
+simHMM(robot_hmm, 10)
+```
+
+\newpage
+
+# Gaussian Processes
+
+```{r}
+library(MASS)
+library(kernlab)
+
+## gamma-exponential kernel
+k <- function(sigmaf = 1, ell = 1, gamma = 2)
+{
+	rval <- function(x, y = NULL)
+    {
+		r = sqrt(crossprod(x-y))
+		return(sigmaf^2*exp(-(r/ell)^gamma))
+	}
+
+    class(rval) <- "kernel"
+    return(rval)
+}
+
+k1 <- k(gamma=1)
+k2 <- k(gamma=2)
+r <- seq(0, 3, by=0.01)
+
+plot(r, kernelMatrix(k1, r)[1, ], type="l", col="red", ylim=c(0, 1))
+lines(r, kernelMatrix(k2, r)[1, ], type="l", col="blue")
+
+x <- seq(0, 2, by=0.01)
+n <- length(x)
+
+set.seed(12345)
+
+s11 <- mvrnorm(n=1, mu=rep(0, n), Sigma=kernelMatrix(k1, x))
+s12 <- mvrnorm(n=1, mu=rep(0, n), Sigma=kernelMatrix(k1, x))
+s13 <- mvrnorm(n=1, mu=rep(0, n), Sigma=kernelMatrix(k1, x))
+
+s21 <- mvrnorm(n=1, mu=rep(0, n), Sigma=kernelMatrix(k2, x))
+s22 <- mvrnorm(n=1, mu=rep(0, n), Sigma=kernelMatrix(k2, x))
+s23 <- mvrnorm(n=1, mu=rep(0, n), Sigma=kernelMatrix(k2, x))
+
+old <- par(mfrow=c(1, 2))
+plot(x, s11, type="l", col="red", ylim=c(-5, 5))
+lines(x, s12, col="blue")
+lines(x, s13, col="green")
+
+plot(x, s21, type="l", col="red", ylim=c(-5, 5))
+lines(x, s22, col="blue")
+lines(x, s23, col="green")
+par(old)
 ```
